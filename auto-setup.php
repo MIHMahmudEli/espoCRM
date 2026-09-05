@@ -225,7 +225,7 @@ if ($tableCount >= 10) {
                 // Generate password hash using PHP's password_hash
                 $passwordHash = password_hash('admin12@#', PASSWORD_BCRYPT);
 
-                $adminId = bin2hex(random_bytes(16));
+                $adminId = bin2hex(random_bytes(12));
 
                 // Build INSERT dynamically with only columns that exist
                 $now = date('Y-m-d H:i:s');
@@ -271,7 +271,7 @@ if ($tableCount >= 10) {
                         $tuColumns = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
                         $tuData = [];
-                        if (in_array('id', $tuColumns)) $tuData['id'] = bin2hex(random_bytes(16));
+                        if (in_array('id', $tuColumns)) $tuData['id'] = bin2hex(random_bytes(12));
                         if (in_array('user_id', $tuColumns)) $tuData['user_id'] = $adminId;
                         if (in_array('team_id', $tuColumns)) $tuData['team_id'] = $teamId;
                         if (in_array('role', $tuColumns)) $tuData['role'] = 'admin';
@@ -343,7 +343,7 @@ try {
 
             foreach ($settings as [$name, $value]) {
                 $stmt = $pdo->prepare('INSERT INTO "settings" ("id", "name", "value", "deleted") VALUES (?, ?, ?, 0)');
-                $stmt->execute([bin2hex(random_bytes(16)), $name, $value]);
+                $stmt->execute([bin2hex(random_bytes(12)), $name, $value]);
             }
             echo "Default settings inserted.\n";
         }

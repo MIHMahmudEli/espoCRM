@@ -23,6 +23,7 @@ RUN apk add --no-cache \
         zip \
         opcache \
         bcmath \
+        exif \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && rm -rf /var/cache/apk/*

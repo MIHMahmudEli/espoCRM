@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: espocrm
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SPOC_DB_HOST
+        sync: false
+      - key: SPOC_DB_PORT
+        value: "5432"
+      - key: SPOC_DB_NAME
+        value: "postgres"
+      - key: SPOC_DB_USER
+        sync: false
+      - key: SPOC_DB_PASSWORD
+        sync: false
+      - key: SPOC_DB_DRIVER
+        value: "pdo_pgsql"
+      - key: INSTANCE_ID
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+    healthCheckPath: /
+    autoDeploy: true

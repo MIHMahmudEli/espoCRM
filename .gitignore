@@ -1,0 +1,9 @@
+data/.data
+data/config.php
+data/crontab
+data/incoming-email
+data/upload/
+data/cache/
+data/logs/
+data/tmp/
+custom/Espo/Custom/

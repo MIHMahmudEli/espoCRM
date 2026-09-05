@@ -53,6 +53,18 @@ $configData = [
     'hashSecretKey' => bin2hex(random_bytes(32)),
     'theme' => 'Espo',
     'isInstalled' => true,
+    'defaultCurrency' => 'USD',
+    'baseCurrency' => 'USD',
+    'currencyList' => ['USD'],
+    'currencyRates' => [],
+    'currencyNoJoinMode' => true,
+    'timeZone' => 'UTC',
+    'dateFormat' => 'DD.MM.YYYY',
+    'timeFormat' => 'HH:mm',
+    'weekStart' => 0,
+    'thousandSeparator' => ',',
+    'decimalMark' => '.',
+    'useCache' => true,
 ];
 
 $phpContent = "<?php\nreturn " . var_export($configData, true) . ";\n";

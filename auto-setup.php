@@ -109,22 +109,45 @@ echo implode("\n", $output) . "\n";
 echo "rebuild.php exit code: $exitCode\n";
 
 if ($exitCode !== 0) {
-    echo "\nrebuild.php failed. Attempting in-process rebuild...\n";
+    echo "\nrebuild.php failed. Reading log file...\n";
+    
+    // Read the EspoCRM log file to see the actual error
+    $logDir = $basePath . '/data/logs';
+    if (is_dir($logDir)) {
+        foreach (glob($logDir . '/espo*.log') as $logFile) {
+            echo "--- " . basename($logFile) . " ---\n";
+            echo file_get_contents($logFile);
+            echo "\n--- end ---\n";
+        }
+    }
+    
+    echo "\nAttempting in-process rebuild (calling DataManager directly)...\n";
     
     try {
-        // Reset error handlers from auto-setup.php
         restore_error_handler();
         restore_exception_handler();
         
         include_once $basePath . '/bootstrap.php';
         
         $app = new \Espo\Core\Application();
-        $app->run(\Espo\Core\ApplicationRunners\Rebuild::class);
+        
+        // Call DataManager::rebuild() directly, bypassing the Rebuild runner that calls exit(1)
+        $dm = $app->getContainer()->getByClass(\Espo\Core\DataManager::class);
+        $dm->rebuild();
         echo "In-process rebuild succeeded!\n";
     } catch (\Throwable $e) {
         echo "In-process rebuild FAILED: " . $e->getMessage() . "\n";
         echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
         echo "Trace:\n" . $e->getTraceAsString() . "\n";
+        
+        // Read log again after in-process attempt
+        if (is_dir($logDir)) {
+            foreach (glob($logDir . '/espo*.log') as $logFile) {
+                echo "--- " . basename($logFile) . " (after in-process) ---\n";
+                echo file_get_contents($logFile);
+                echo "\n--- end ---\n";
+            }
+        }
     }
 }
 

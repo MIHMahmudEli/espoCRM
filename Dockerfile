@@ -53,10 +53,11 @@ RUN ln -s /var/www/html/client /var/www/html/public/client \
     && mkdir -p /run/nginx /tmp \
     && chmod 1733 /tmp \
     && chown -R nginx:nginx /run/nginx \
-    && chown -R nginx:nginx /var/lib/nginx
+    && chown -R nginx:nginx /var/lib/nginx \
+    && chmod +x /var/www/html/entrypoint.sh
 
 COPY supervisord.conf /etc/supervisord.conf
 
 EXPOSE 8080
 
-CMD ["supervisord", "-c", "/etc/supervisord.conf", "-n"]
+CMD ["/var/www/html/entrypoint.sh"]

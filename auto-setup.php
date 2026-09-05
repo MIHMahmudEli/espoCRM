@@ -209,6 +209,7 @@ echo "\n[3/4] Creating admin user...\n";
 
 if ($tableCount >= 10) {
     try {
+        require_once $basePath . '/bootstrap.php';
         require_once $basePath . '/install/core/Installer.php';
 
         $installer = new \Installer();

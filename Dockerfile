@@ -35,7 +35,8 @@ WORKDIR /var/www/html
 
 COPY . .
 
-RUN mkdir -p /var/www/html/data/cache \
+RUN ln -s /var/www/html/client /var/www/html/public/client \
+    && mkdir -p /var/www/html/data/cache \
     /var/www/html/data/logs \
     /var/www/html/data/upload \
     /var/www/html/data/tmp \

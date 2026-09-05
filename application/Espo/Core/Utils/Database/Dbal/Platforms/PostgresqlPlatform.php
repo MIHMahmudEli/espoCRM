@@ -45,6 +45,23 @@ class PostgresqlPlatform extends PostgreSQL100Platform
         $this->textSearchConfig = $textSearchConfig;
     }
 
+    protected function initializeDoctrineTypeMappings(): void
+    {
+        parent::initializeDoctrineTypeMappings();
+
+        $this->doctrineTypeMapping['_text'] = 'text';
+        $this->doctrineTypeMapping['_int4'] = 'integer';
+        $this->doctrineTypeMapping['_int8'] = 'bigint';
+        $this->doctrineTypeMapping['_int2'] = 'smallint';
+        $this->doctrineTypeMapping['_bool'] = 'boolean';
+        $this->doctrineTypeMapping['_float4'] = 'float';
+        $this->doctrineTypeMapping['_float8'] = 'float';
+        $this->doctrineTypeMapping['_numeric'] = 'decimal';
+        $this->doctrineTypeMapping['_json'] = 'json';
+        $this->doctrineTypeMapping['_bytea'] = 'binary';
+        $this->doctrineTypeMapping['_uuid'] = 'guid';
+    }
+
     public function createSchemaManager(Connection $connection): PostgreSQLSchemaManager
     {
         return new PostgreSQLSchemaManager($connection, $this);

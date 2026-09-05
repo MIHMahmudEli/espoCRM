@@ -209,6 +209,16 @@ echo "\n[3/4] Creating admin user...\n";
 
 if ($tableCount >= 10) {
     try {
+        // Insert system user first - Installer requires it
+        $sysCheck = $pdo->query('SELECT "id" FROM "user" WHERE "user_name" = \'system\'');
+        if (!$sysCheck->fetch()) {
+            $sysId = bin2hex(random_bytes(12));
+            $now = date('Y-m-d H:i:s');
+            $stmt = $pdo->prepare('INSERT INTO "user" ("id", "user_name", "password", "first_name", "last_name", "type", "created_at", "modified_at", "deleted", "is_active") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$sysId, 'system', '---', 'System', 'User', 'system', $now, $now, 0, 1]);
+            echo "System user created.\n";
+        }
+
         require_once $basePath . '/bootstrap.php';
         require_once $basePath . '/install/core/Installer.php';
 

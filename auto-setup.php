@@ -80,6 +80,11 @@ echo "Config written successfully.\n";
 echo "Database host: {$config['database']['host']}\n";
 echo "Database name: {$config['database']['dbname']}\n";
 
+// Write install/config.php early so bootstrap works
+$installConfigPath = $basePath . '/install/config.php';
+file_put_contents($installConfigPath, "<?php\nreturn ['isInstalled' => true];\n", LOCK_EX);
+echo "install/config.php written.\n";
+
 // Step 2: Test DB connection via PDO
 echo "\n[2/4] Testing DB connection and creating schema via rebuild.php...\n";
 
@@ -261,17 +266,8 @@ if ($tableCount >= 10) {
     exit(1);
 }
 
-// Step 4: Create install/config.php and preferences
+// Step 4: Finalize
 echo "\n[4/4] Finalizing installation...\n";
-
-// Write install/config.php
-$installConfigPath = $basePath . '/install/config.php';
-$installConfig = [
-    'isInstalled' => true,
-];
-$installContent = "<?php\nreturn " . var_export($installConfig, true) . ";\n";
-file_put_contents($installConfigPath, $installContent, LOCK_EX);
-echo "install/config.php written.\n";
 
 // Insert default settings via ORM
 try {

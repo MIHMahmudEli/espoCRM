@@ -85,17 +85,35 @@ try {
     exit(1);
 }
 
-// Run rebuild.php for schema creation
+// Run rebuild.php for schema creation with error display enabled
 chdir($basePath);
+
+echo "Attempting rebuild.php (with error display)...\n";
 $output = [];
 $exitCode = 0;
-exec('php rebuild.php 2>&1', $output, $exitCode);
+exec('php -d display_errors=1 -d error_reporting=E_ALL rebuild.php 2>&1', $output, $exitCode);
 echo "rebuild.php output:\n";
 echo implode("\n", $output) . "\n";
 echo "rebuild.php exit code: $exitCode\n";
 
 if ($exitCode !== 0) {
-    echo "WARNING: rebuild.php failed. Attempting manual schema creation...\n";
+    echo "\nrebuild.php failed. Attempting in-process rebuild...\n";
+    
+    try {
+        // Reset error handlers from auto-setup.php
+        restore_error_handler();
+        restore_exception_handler();
+        
+        include_once $basePath . '/bootstrap.php';
+        
+        $app = new \Espo\Core\Application();
+        $app->run(\Espo\Core\ApplicationRunners\Rebuild::class);
+        echo "In-process rebuild succeeded!\n";
+    } catch (\Throwable $e) {
+        echo "In-process rebuild FAILED: " . $e->getMessage() . "\n";
+        echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
+        echo "Trace:\n" . $e->getTraceAsString() . "\n";
+    }
 }
 
 // Check if tables were created

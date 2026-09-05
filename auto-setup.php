@@ -106,7 +106,7 @@ echo "Tables in database: $tableCount\n";
 $schemaComplete = false;
 if ($tableCount >= 100) {
     try {
-        $stmt = $pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user' AND column_name = 'is_admin')");
+        $stmt = $pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user' AND column_name = 'user_name')");
         $schemaComplete = $stmt->fetchColumn();
     } catch (Throwable $e) {}
 }
@@ -238,12 +238,12 @@ if ($tableCount >= 10) {
                 if (in_array('type', $userColumns)) $columnData['type'] = 'admin';
                 if (in_array('created_at', $userColumns)) $columnData['created_at'] = $now;
                 if (in_array('modified_at', $userColumns)) $columnData['modified_at'] = $now;
-                if (in_array('deleted', $userColumns)) $columnData['deleted'] = false;
-                if (in_array('is_admin', $userColumns)) $columnData['is_admin'] = true;
-                if (in_array('is_active', $userColumns)) $columnData['is_active'] = true;
-                if (in_array('is_portal', $userColumns)) $columnData['is_portal'] = false;
-                if (in_array('is_superuser', $userColumns)) $columnData['is_superuser'] = false;
-                if (in_array('is_api_user', $userColumns)) $columnData['is_api_user'] = false;
+                if (in_array('deleted', $userColumns)) $columnData['deleted'] = 0;
+                if (in_array('is_admin', $userColumns)) $columnData['is_admin'] = 1;
+                if (in_array('is_active', $userColumns)) $columnData['is_active'] = 1;
+                if (in_array('is_portal', $userColumns)) $columnData['is_portal'] = 0;
+                if (in_array('is_superuser', $userColumns)) $columnData['is_superuser'] = 0;
+                if (in_array('is_api_user', $userColumns)) $columnData['is_api_user'] = 0;
                 if (in_array('password_version', $userColumns)) $columnData['password_version'] = 0;
                 if (in_array('status', $userColumns)) $columnData['status'] = 'active';
 
@@ -275,7 +275,7 @@ if ($tableCount >= 10) {
                         if (in_array('user_id', $tuColumns)) $tuData['user_id'] = $adminId;
                         if (in_array('team_id', $tuColumns)) $tuData['team_id'] = $teamId;
                         if (in_array('role', $tuColumns)) $tuData['role'] = 'admin';
-                        if (in_array('deleted', $tuColumns)) $tuData['deleted'] = false;
+                        if (in_array('deleted', $tuColumns)) $tuData['deleted'] = 0;
 
                         if (count($tuData) >= 3) {
                             $tuNames = array_keys($tuData);
@@ -342,7 +342,7 @@ try {
             ];
 
             foreach ($settings as [$name, $value]) {
-                $stmt = $pdo->prepare('INSERT INTO "settings" ("id", "name", "value", "deleted") VALUES (?, ?, ?, false)');
+                $stmt = $pdo->prepare('INSERT INTO "settings" ("id", "name", "value", "deleted") VALUES (?, ?, ?, 0)');
                 $stmt->execute([bin2hex(random_bytes(16)), $name, $value]);
             }
             echo "Default settings inserted.\n";
@@ -358,7 +358,7 @@ try {
     $prefsExists = $stmt->fetchColumn();
 
     if ($prefsExists) {
-        $stmt = $pdo->query('SELECT COUNT(*) FROM "preferences" WHERE "deleted" = false');
+        $stmt = $pdo->query('SELECT COUNT(*) FROM "preferences"');
         $prefsCount = $stmt->fetchColumn();
 
         if ($prefsCount == 0 && isset($adminId)) {

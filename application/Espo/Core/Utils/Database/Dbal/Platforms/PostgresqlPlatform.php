@@ -45,6 +45,23 @@ class PostgresqlPlatform extends PostgreSQL100Platform
         $this->textSearchConfig = $textSearchConfig;
     }
 
+    public function getDoctrineTypeMapping($dbType)
+    {
+        $dbType = strtolower($dbType);
+
+        try {
+            return parent::getDoctrineTypeMapping($dbType);
+        } catch (\Doctrine\DBAL\Exception $e) {
+            if (isset($this->doctrineTypeMapping[$dbType])) {
+                return $this->doctrineTypeMapping[$dbType];
+            }
+
+            $this->doctrineTypeMapping[$dbType] = 'string';
+
+            return 'string';
+        }
+    }
+
     protected function initializeDoctrineTypeMappings(): void
     {
         parent::initializeDoctrineTypeMappings();
@@ -60,6 +77,7 @@ class PostgresqlPlatform extends PostgreSQL100Platform
         $this->doctrineTypeMapping['_json'] = 'json';
         $this->doctrineTypeMapping['_bytea'] = 'binary';
         $this->doctrineTypeMapping['_uuid'] = 'guid';
+        $this->doctrineTypeMapping['buckettype'] = 'string';
     }
 
     public function createSchemaManager(Connection $connection): PostgreSQLSchemaManager

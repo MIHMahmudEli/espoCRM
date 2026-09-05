@@ -209,10 +209,14 @@ if ($tableCount >= 10) {
         $userTableExists = $stmt->fetchColumn();
 
         if ($userTableExists) {
-            // Get actual columns of user table
-            $stmt = $pdo->query("SELECT column_name FROM information_schema.columns WHERE table_name = 'user' ORDER BY ordinal_position");
-            $userColumns = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            echo "User table columns: " . implode(', ', $userColumns) . "\n";
+            // Get actual columns of user table with sizes
+            $stmt = $pdo->query("SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name = 'user' ORDER BY ordinal_position");
+            $userColInfo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $userColumns = array_column($userColInfo, 'column_name');
+            echo "User table columns:\n";
+            foreach ($userColInfo as $col) {
+                echo "  {$col['column_name']}: {$col['data_type']}" . ($col['character_maximum_length'] ? "({$col['character_maximum_length']})" : "") . "\n";
+            }
 
             // Check if admin user already exists
             $stmt = $pdo->prepare('SELECT "id" FROM "user" WHERE "user_name" = ?');
@@ -248,9 +252,15 @@ if ($tableCount >= 10) {
                 if (in_array('status', $userColumns)) $columnData['status'] = 'active';
 
                 $colNames = array_keys($columnData);
+                $colValues = array_values($columnData);
                 $placeholders = array_fill(0, count($colNames), '?');
                 $sql = 'INSERT INTO "user" ("' . implode('", "', $colNames) . '") VALUES (' . implode(', ', $placeholders) . ')';
                 echo "SQL: $sql\n";
+                echo "Values: ";
+                foreach ($columnData as $k => $v) {
+                    $display = is_string($v) ? "'$v'" : var_export($v, true);
+                    echo "  $k=" . $display . " (len=" . strlen((string)$v) . ")\n";
+                }
 
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute(array_values($columnData));

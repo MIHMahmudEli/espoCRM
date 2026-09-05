@@ -209,6 +209,21 @@ echo "\n[3/4] Creating admin user...\n";
 
 if ($tableCount >= 10) {
     try {
+        // Dump user table column sizes to find varchar(17)
+        $colInfo = $pdo->query("SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name = 'user' AND table_schema = 'public' ORDER BY ordinal_position");
+        while ($row = $colInfo->fetch(PDO::FETCH_ASSOC)) {
+            $len = $row['character_maximum_length'] ?? 'NULL';
+            echo "  user.{$row['column_name']}: {$row['data_type']}($len)\n";
+        }
+
+        // Fix any undersized varchar columns on user table
+        $fixCols = $pdo->query("SELECT column_name, character_maximum_length FROM information_schema.columns WHERE table_name = 'user' AND table_schema = 'public' AND data_type = 'character varying' AND character_maximum_length < 24");
+        while ($row = $fixCols->fetch(PDO::FETCH_ASSOC)) {
+            $col = $row['column_name'];
+            echo "  FIXING: ALTER user.$col to varchar(255)\n";
+            $pdo->exec('ALTER TABLE "user" ALTER COLUMN "' . $col . '" TYPE varchar(255)');
+        }
+
         // Insert system user first - Installer requires it
         $sysCheck = $pdo->query('SELECT "id" FROM "user" WHERE "user_name" = \'system\'');
         if (!$sysCheck->fetch()) {

@@ -204,57 +204,23 @@ if ($schemaComplete) {
     }
 }
 
-// Step 3: Create admin user via EspoCRM ORM
+// Step 3: Create admin user using EspoCRM Installer
 echo "\n[3/4] Creating admin user...\n";
 
 if ($tableCount >= 10) {
     try {
-        // Bootstrap EspoCRM
-        include_once $basePath . '/bootstrap.php';
-        $app = new \Espo\Core\Application();
-        $container = $app->getContainer();
-        $em = $container->getByClass(\Espo\ORM\EntityManager::class);
-        $passwordHasher = $container->getByClass(\Espo\Core\Utils\PasswordHasher::class);
-        $recordIdGenerator = $container->getByClass(\Espo\ORM\RecordIdGenerator::class);
+        require_once $basePath . '/install/core/Installer.php';
 
-        // Check if admin user already exists
-        $existing = $em->getRDBRepository('User')
-            ->where(['userName' => 'admin'])
-            ->findOne();
+        $installer = new \Installer();
+        $result = $installer->createUser('admin', 'admin12@#');
 
-        if ($existing) {
-            echo "Admin user already exists.\n";
-        } else {
-            $id = $recordIdGenerator->generate();
-            $password = $passwordHasher->hash('admin12@#');
-
-            $em->getRDBRepository('User')->create([
-                'id' => $id,
-                'userName' => 'admin',
-                'password' => $password,
-                'lastName' => 'Admin',
-                'type' => 'admin',
-                'isActive' => true,
-            ]);
-
+        if ($result) {
             echo "Admin user created successfully.\n";
-            echo "Login: admin / Password: admin12@#\n";
-
-            // Try to assign admin team
-            try {
-                $team = $em->getRDBRepository('Team')->findOne();
-                if ($team) {
-                    $em->getRDBRepository('TeamUser')->create([
-                        'userId' => $id,
-                        'teamId' => $team->getId(),
-                        'role' => 'admin',
-                    ]);
-                    echo "Admin team assignment created.\n";
-                }
-            } catch (Throwable $e) {
-                echo "Note: Could not assign team: " . $e->getMessage() . "\n";
-            }
+        } else {
+            echo "Admin user may already exist.\n";
         }
+
+        echo "Login: admin / Password: admin12@#\n";
     } catch (Throwable $e) {
         echo "ERROR creating admin user: " . $e->getMessage() . "\n";
         echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
@@ -268,50 +234,6 @@ if ($tableCount >= 10) {
 
 // Step 4: Finalize
 echo "\n[4/4] Finalizing installation...\n";
-
-// Insert default settings via ORM
-try {
-    $settingsCount = $em->getRDBRepository('Setting')->count();
-    if ($settingsCount == 0) {
-        $settings = [
-            'language' => 'en_US',
-            'dateFormat' => 'DD.MM.YYYY',
-            'timeFormat' => 'HH:mm',
-            'timeZone' => 'UTC',
-            'weekStart' => '0',
-            'defaultCurrency' => 'USD',
-            'baseCurrency' => 'USD',
-            'thousandSeparator' => ',',
-            'decimalMark' => '.',
-            'theme' => 'Espo',
-        ];
-        foreach ($settings as $name => $value) {
-            $em->getRDBRepository('Setting')->create([
-                'name' => $name,
-                'value' => $value,
-            ]);
-        }
-        echo "Default settings inserted.\n";
-    }
-} catch (Throwable $e) {
-    echo "Note: Could not insert settings: " . $e->getMessage() . "\n";
-}
-
-// Insert default preferences via ORM
-try {
-    if (isset($id)) {
-        $existingPrefs = $em->getRDBRepository('Preferences')->find($id);
-        if (!$existingPrefs) {
-            $em->getRDBRepository('Preferences')->create([
-                'id' => $id,
-                'data' => ['language' => 'en_US'],
-            ]);
-            echo "Default preferences inserted.\n";
-        }
-    }
-} catch (Throwable $e) {
-    echo "Note: Could not insert preferences: " . $e->getMessage() . "\n";
-}
 
 // Set permissions
 chmod($configPath, 0664);

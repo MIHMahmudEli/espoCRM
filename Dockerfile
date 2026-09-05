@@ -36,17 +36,19 @@ WORKDIR /var/www/html
 COPY . .
 
 RUN ln -s /var/www/html/client /var/www/html/public/client \
-    && mkdir -p /var/www/html/data/cache \
+    && mkdir -p /var/www/html/client/custom \
+    /var/www/html/data/cache \
     /var/www/html/data/logs \
     /var/www/html/data/upload \
     /var/www/html/data/tmp \
     /var/www/html/data/espocrm \
     /var/www/html/custom/Espo/Custom \
     && touch /var/www/html/data/.data \
-    && chown -R nginx:nginx /var/www/html \
+    && chown -R 82:82 /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod -R 777 /var/www/html/data \
     && chmod -R 777 /var/www/html/custom \
+    && chmod -R 777 /var/www/html/client/custom \
     && mkdir -p /run/nginx /tmp \
     && chmod 1733 /tmp \
     && chown -R nginx:nginx /run/nginx \

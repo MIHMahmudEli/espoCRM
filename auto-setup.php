@@ -1,24 +1,34 @@
 <?php
-/**
- * Auto-setup script for EspoCRM on Render with Supabase PostgreSQL.
- * Runs on first boot if data/config.php does not exist.
- */
-
 $configFile = __DIR__ . '/data/config.php';
 
 if (file_exists($configFile)) {
-    echo "EspoCRM already configured. Skipping setup.\n";
+    echo "Already configured.\n";
     return;
 }
 
-$host = getenv('SPOC_DB_HOST') ?: 'aws-0-ap-northeast-2.pooler.supabase.com';
+$host = getenv('SPOC_DB_HOST');
 $port = getenv('SPOC_DB_PORT') ?: '5432';
 $dbname = getenv('SPOC_DB_NAME') ?: 'postgres';
-$user = getenv('SPOC_DB_USER') ?: 'postgres.nghztacvdcmizwjoaktf';
-$password = getenv('SPOC_DB_PASSWORD') ?: 'MqjuNE5jJTDv9&B';
+$user = getenv('SPOC_DB_USER');
+$password = getenv('SPOC_DB_PASSWORD');
 $driver = getenv('SPOC_DB_DRIVER') ?: 'pdo_pgsql';
 $secretKey = getenv('SECRET_KEY') ?: bin2hex(random_bytes(32));
 $instanceId = getenv('INSTANCE_ID') ?: bin2hex(random_bytes(16));
+
+echo "Connecting to database...\n";
+
+try {
+    $pdo = new PDO(
+        "pgsql:host=$host;port=$port;dbname=$dbname",
+        $user,
+        $password,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+    echo "Database connected.\n";
+} catch (PDOException $e) {
+    echo "DB Error: " . $e->getMessage() . "\n";
+    return;
+}
 
 $configData = [
     'database' => [
@@ -38,59 +48,42 @@ $configData = [
     'theme' => 'Espo',
 ];
 
-$configContent = "<?php\nreturn " . var_export($configData, true) . ";\n";
-file_put_contents($configFile, $configContent);
+file_put_contents($configFile, "<?php\nreturn " . var_export($configData, true) . ";\n");
+echo "Config written.\n";
 
-echo "Config file created at $configFile\n";
-
-include __DIR__ . '/bootstrap.php';
-
-use Espo\Core\Application;
-
-$app = new Application();
-
-echo "Running rebuild (creating database schema)...\n";
-
-try {
-    $app->run(\Espo\Core\ApplicationRunners\Rebuild::class);
-    echo "Database schema created successfully.\n";
-} catch (Throwable $e) {
-    echo "Rebuild error: " . $e->getMessage() . "\n";
-}
+echo "Running rebuild...\n";
+chdir(__DIR__);
+ob_start();
+include 'rebuild.php';
+$output = ob_get_clean();
+echo $output . "\n";
 
 echo "Creating admin user...\n";
-
+$passwordHash = password_hash('admin123', PASSWORD_BCRYPT);
 try {
-    $container = $app->getContainer();
-    $passwordHash = password_hash('admin123', PASSWORD_BCRYPT);
-    $entityManager = $container->getByClass(\Espo\ORM\EntityManager::class);
-
-    $user = $entityManager->getRDBRepository('User')->getBuilder()
-        ->where(['userName' => 'admin'])
-        ->build()
-        ->find();
-
-    if (empty($user)) {
-        $adminUser = $entityManager->getEntityFactory()->create('User');
-        $adminUser->set('userName', 'admin');
-        $adminUser->set('passwordHash', $passwordHash);
-        $adminUser->set('firstName', 'Admin');
-        $adminUser->set('lastName', '');
-        $adminUser->set('roles', []);
-        $adminUser->set('type', 'admin');
-        $adminUser->set('status', 'active');
-        $adminUser->set('portalAccess', false);
-        $adminUser->set('defaultPortal', '');
-        $adminUser->set('emailAddress', '');
-        $adminUser->set('sendEmail', false);
-
-        $entityManager->saveEntity($adminUser);
-        echo "Admin user created (username: admin, password: admin123)\n";
-    } else {
-        echo "Admin user already exists.\n";
-    }
-} catch (Throwable $e) {
-    echo "User creation error: " . $e->getMessage() . "\n";
+    $pdo->exec(
+        "INSERT INTO `user` (id, user_name, password_hash, last_name, type, created_at, modified_at, deleted)
+         VALUES ('" . bin2hex(random_bytes(8)) . "', 'admin', '" . $passwordHash . "', 'Admin', 'admin', '" . date('Y-m-d H:i:s') . "', '" . date('Y-m-d H:i:s') . "', 0)
+         ON CONFLICT (user_name, deleted) DO NOTHING"
+    );
+    echo "Admin user created (admin / admin123).\n";
+} catch (PDOException $e) {
+    echo "User create error: " . $e->getMessage() . "\n";
 }
+
+$installerConfigFile = __DIR__ . '/data/espocrm-internal/config.php';
+@mkdir(dirname($installerConfigFile), 0777, true);
+file_put_contents(
+    $installerConfigFile,
+    "<?php\nreturn ['isInstalled' => true];\n"
+);
+
+$mainConfigFile = $configFile;
+$existingConfig = include $mainConfigFile;
+$existingConfig['isInstalled'] = true;
+file_put_contents(
+    $mainConfigFile,
+    "<?php\nreturn " . var_export($existingConfig, true) . ";\n"
+);
 
 echo "Setup complete.\n";

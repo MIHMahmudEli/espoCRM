@@ -97,75 +97,84 @@ try {
     exit(1);
 }
 
-// Run rebuild.php for schema creation with error display enabled
-chdir($basePath);
-
-echo "Attempting rebuild.php (with error display)...\n";
-$output = [];
-$exitCode = 0;
-exec('php -d display_errors=1 -d error_reporting=E_ALL rebuild.php 2>&1', $output, $exitCode);
-echo "rebuild.php output:\n";
-echo implode("\n", $output) . "\n";
-echo "rebuild.php exit code: $exitCode\n";
-
-if ($exitCode !== 0) {
-    echo "\nrebuild.php failed. Reading log file...\n";
-    
-    // Read the EspoCRM log file to see the actual error
-    $logDir = $basePath . '/data/logs';
-    if (is_dir($logDir)) {
-        foreach (glob($logDir . '/espo*.log') as $logFile) {
-            echo "--- " . basename($logFile) . " ---\n";
-            echo file_get_contents($logFile);
-            echo "\n--- end ---\n";
-        }
-    }
-    
-    echo "\nAttempting in-process rebuild (calling DataManager directly)...\n";
-    
-    try {
-        restore_error_handler();
-        restore_exception_handler();
-        
-        include_once $basePath . '/bootstrap.php';
-        
-        $app = new \Espo\Core\Application();
-        
-        // Call DataManager::rebuild() directly, bypassing the Rebuild runner that calls exit(1)
-        $dm = $app->getContainer()->getByClass(\Espo\Core\DataManager::class);
-        $dm->rebuild();
-        echo "In-process rebuild succeeded!\n";
-    } catch (\Throwable $e) {
-        echo "In-process rebuild FAILED: " . $e->getMessage() . "\n";
-        echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
-        echo "Trace:\n" . $e->getTraceAsString() . "\n";
-        
-        // Read log again after in-process attempt
-        if (is_dir($logDir)) {
-            foreach (glob($logDir . '/espo*.log') as $logFile) {
-                echo "--- " . basename($logFile) . " (after in-process) ---\n";
-                echo file_get_contents($logFile);
-                echo "\n--- end ---\n";
-            }
-        }
-    }
-}
-
-// Check if tables were created
+// Check if schema already exists
 $stmt = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'");
 $tableCount = $stmt->fetchColumn();
 echo "Tables in database: $tableCount\n";
 
-if ($tableCount < 10) {
-    echo "Schema not created by rebuild.php. Attempting EspoCRM CLI rebuild...\n";
-    exec('php install/cli.php -a buildDatabase 2>&1', $output2, $exitCode2);
-    echo implode("\n", $output2) . "\n";
-    echo "cli buildDatabase exit code: $exitCode2\n";
+if ($tableCount >= 100) {
+    echo "Schema already exists ($tableCount tables). Skipping rebuild.\n";
+} else {
+    // Run rebuild.php for schema creation with error display enabled
+    chdir($basePath);
 
-    // Recheck
+    echo "Attempting rebuild.php (with error display)...\n";
+    $output = [];
+    $exitCode = 0;
+    exec('php -d display_errors=1 -d error_reporting=E_ALL rebuild.php 2>&1', $output, $exitCode);
+    echo "rebuild.php output:\n";
+    echo implode("\n", $output) . "\n";
+    echo "rebuild.php exit code: $exitCode\n";
+
+    if ($exitCode !== 0) {
+        echo "\nrebuild.php failed. Reading log file...\n";
+        
+        // Read the EspoCRM log file to see the actual error
+        $logDir = $basePath . '/data/logs';
+        if (is_dir($logDir)) {
+            foreach (glob($logDir . '/espo*.log') as $logFile) {
+                echo "--- " . basename($logFile) . " ---\n";
+                echo file_get_contents($logFile);
+                echo "\n--- end ---\n";
+            }
+        }
+        
+        echo "\nAttempting in-process rebuild (calling DataManager directly)...\n";
+        
+        try {
+            restore_error_handler();
+            restore_exception_handler();
+            
+            include_once $basePath . '/bootstrap.php';
+            
+            $app = new \Espo\Core\Application();
+            
+            // Call DataManager::rebuild() directly, bypassing the Rebuild runner that calls exit(1)
+            $dm = $app->getContainer()->getByClass(\Espo\Core\DataManager::class);
+            $dm->rebuild();
+            echo "In-process rebuild succeeded!\n";
+        } catch (\Throwable $e) {
+            echo "In-process rebuild FAILED: " . $e->getMessage() . "\n";
+            echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
+            echo "Trace:\n" . $e->getTraceAsString() . "\n";
+            
+            // Read log again after in-process attempt
+            if (is_dir($logDir)) {
+                foreach (glob($logDir . '/espo*.log') as $logFile) {
+                    echo "--- " . basename($logFile) . " (after in-process) ---\n";
+                    echo file_get_contents($logFile);
+                    echo "\n--- end ---\n";
+                }
+            }
+        }
+    }
+
+    // Recheck table count
     $stmt = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'");
     $tableCount = $stmt->fetchColumn();
-    echo "Tables after CLI rebuild: $tableCount\n";
+    echo "Tables after rebuild: $tableCount\n";
+
+    if ($tableCount < 10) {
+        echo "Schema not created by rebuild.php. Attempting EspoCRM CLI rebuild...\n";
+        exec('php install/cli.php -a buildDatabase 2>&1', $output2, $exitCode2);
+        echo implode("\n", $output2) . "\n";
+        echo "cli buildDatabase exit code: $exitCode2\n";
+
+        // Recheck
+        $stmt = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'");
+        $tableCount = $stmt->fetchColumn();
+        echo "Tables after CLI rebuild: $tableCount\n";
+    }
 }
 
 // Step 3: Create admin user

@@ -10,6 +10,9 @@ RUN apk add --no-cache \
     freetype-dev \
     icu-dev \
     oniguruma-dev \
+    autoconf \
+    g++ \
+    make \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo_pgsql \

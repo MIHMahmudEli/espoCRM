@@ -199,115 +199,61 @@ if ($schemaComplete) {
     }
 }
 
-// Step 3: Create admin user
+// Step 3: Create admin user via EspoCRM ORM
 echo "\n[3/4] Creating admin user...\n";
 
 if ($tableCount >= 10) {
     try {
-        // Check if user table exists
-        $stmt = $pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user')");
-        $userTableExists = $stmt->fetchColumn();
+        // Bootstrap EspoCRM
+        include_once $basePath . '/bootstrap.php';
+        $app = new \Espo\Core\Application();
+        $container = $app->getContainer();
+        $em = $container->getByClass(\Espo\ORM\EntityManager::class);
+        $passwordHasher = $container->getByClass(\Espo\Core\Utils\PasswordHasher::class);
+        $recordIdGenerator = $container->getByClass(\Espo\ORM\RecordIdGenerator::class);
 
-        if ($userTableExists) {
-            // Get actual columns of user table with sizes
-            $stmt = $pdo->query("SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name = 'user' ORDER BY ordinal_position");
-            $userColInfo = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $userColumns = array_column($userColInfo, 'column_name');
-            echo "User table columns:\n";
-            foreach ($userColInfo as $col) {
-                echo "  {$col['column_name']}: {$col['data_type']}" . ($col['character_maximum_length'] ? "({$col['character_maximum_length']})" : "") . "\n";
-            }
+        // Check if admin user already exists
+        $existing = $em->getRDBRepository('User')
+            ->where(['userName' => 'admin'])
+            ->findOne();
 
-            // Check if admin user already exists
-            $stmt = $pdo->prepare('SELECT "id" FROM "user" WHERE "user_name" = ?');
-            $stmt->execute(['admin']);
-            $existing = $stmt->fetch();
-
-            if ($existing) {
-                echo "Admin user already exists.\n";
-            } else {
-                // Generate password hash using PHP's password_hash
-                $passwordHash = password_hash('admin12@#', PASSWORD_BCRYPT);
-
-                $adminId = bin2hex(random_bytes(12));
-
-                // Build INSERT dynamically with only columns that exist
-                $now = date('Y-m-d H:i:s');
-                $columnData = [];
-                $columnData['id'] = $adminId;
-                if (in_array('user_name', $userColumns)) $columnData['user_name'] = 'admin';
-                if (in_array('password', $userColumns)) $columnData['password'] = $passwordHash;
-                if (in_array('first_name', $userColumns)) $columnData['first_name'] = 'Admin';
-                if (in_array('last_name', $userColumns)) $columnData['last_name'] = 'User';
-                if (in_array('type', $userColumns)) $columnData['type'] = 'admin';
-                if (in_array('created_at', $userColumns)) $columnData['created_at'] = $now;
-                if (in_array('modified_at', $userColumns)) $columnData['modified_at'] = $now;
-                if (in_array('deleted', $userColumns)) $columnData['deleted'] = 0;
-                if (in_array('is_admin', $userColumns)) $columnData['is_admin'] = 1;
-                if (in_array('is_active', $userColumns)) $columnData['is_active'] = 1;
-                if (in_array('is_portal', $userColumns)) $columnData['is_portal'] = 0;
-                if (in_array('is_superuser', $userColumns)) $columnData['is_superuser'] = 0;
-                if (in_array('is_api_user', $userColumns)) $columnData['is_api_user'] = 0;
-                if (in_array('password_version', $userColumns)) $columnData['password_version'] = 0;
-                if (in_array('status', $userColumns)) $columnData['status'] = 'active';
-
-                $colNames = array_keys($columnData);
-                $colValues = array_values($columnData);
-                $placeholders = array_fill(0, count($colNames), '?');
-                $sql = 'INSERT INTO "user" ("' . implode('", "', $colNames) . '") VALUES (' . implode(', ', $placeholders) . ')';
-                echo "SQL: $sql\n";
-                echo "Values: ";
-                foreach ($columnData as $k => $v) {
-                    $display = is_string($v) ? "'$v'" : var_export($v, true);
-                    echo "  $k=" . $display . " (len=" . strlen((string)$v) . ")\n";
-                }
-
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute(array_values($columnData));
-
-                // Get default team ID
-                $teamId = null;
-                try {
-                    $stmt = $pdo->query('SELECT "id" FROM "team" WHERE "deleted" = false LIMIT 1');
-                    $team = $stmt->fetch();
-                    if ($team) $teamId = $team['id'];
-                } catch (Throwable $e) {}
-
-                // Assign to admin team if team exists
-                if ($teamId) {
-                    try {
-                        // Get actual team_user columns
-                        $stmt = $pdo->query("SELECT column_name FROM information_schema.columns WHERE table_name = 'team_user'");
-                        $tuColumns = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-                        $tuData = [];
-                        if (in_array('id', $tuColumns)) $tuData['id'] = bin2hex(random_bytes(12));
-                        if (in_array('user_id', $tuColumns)) $tuData['user_id'] = $adminId;
-                        if (in_array('team_id', $tuColumns)) $tuData['team_id'] = $teamId;
-                        if (in_array('role', $tuColumns)) $tuData['role'] = 'admin';
-                        if (in_array('deleted', $tuColumns)) $tuData['deleted'] = 0;
-
-                        if (count($tuData) >= 3) {
-                            $tuNames = array_keys($tuData);
-                            $tuPlaceholders = array_fill(0, count($tuNames), '?');
-                            $tuSql = 'INSERT INTO "team_user" ("' . implode('", "', $tuNames) . '") VALUES (' . implode(', ', $tuPlaceholders) . ')';
-                            $stmt = $pdo->prepare($tuSql);
-                            $stmt->execute(array_values($tuData));
-                            echo "Admin team assignment created.\n";
-                        }
-                    } catch (Throwable $e) {
-                        echo "Note: Could not assign team: " . $e->getMessage() . "\n";
-                    }
-                }
-
-                echo "Admin user created successfully.\n";
-            }
+        if ($existing) {
+            echo "Admin user already exists.\n";
         } else {
-            echo "ERROR: User table does not exist.\n";
-            exit(1);
+            $id = $recordIdGenerator->generate();
+            $password = $passwordHasher->hash('admin12@#');
+
+            $em->getRDBRepository('User')->create([
+                'id' => $id,
+                'userName' => 'admin',
+                'password' => $password,
+                'lastName' => 'Admin',
+                'type' => 'admin',
+                'isActive' => true,
+            ]);
+
+            echo "Admin user created successfully.\n";
+            echo "Login: admin / Password: admin12@#\n";
+
+            // Try to assign admin team
+            try {
+                $team = $em->getRDBRepository('Team')->findOne();
+                if ($team) {
+                    $em->getRDBRepository('TeamUser')->create([
+                        'userId' => $id,
+                        'teamId' => $team->getId(),
+                        'role' => 'admin',
+                    ]);
+                    echo "Admin team assignment created.\n";
+                }
+            } catch (Throwable $e) {
+                echo "Note: Could not assign team: " . $e->getMessage() . "\n";
+            }
         }
     } catch (Throwable $e) {
         echo "ERROR creating admin user: " . $e->getMessage() . "\n";
+        echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
+        echo "Trace:\n" . $e->getTraceAsString() . "\n";
         exit(1);
     }
 } else {
@@ -327,54 +273,43 @@ $installContent = "<?php\nreturn " . var_export($installConfig, true) . ";\n";
 file_put_contents($installConfigPath, $installContent, LOCK_EX);
 echo "install/config.php written.\n";
 
-// Insert default settings if settings table exists
+// Insert default settings via ORM
 try {
-    $stmt = $pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'settings')");
-    $settingsExists = $stmt->fetchColumn();
-
-    if ($settingsExists) {
-        // Check if settings already exist
-        $stmt = $pdo->query('SELECT COUNT(*) FROM "settings"');
-        $settingsCount = $stmt->fetchColumn();
-
-        if ($settingsCount == 0) {
-            $settings = [
-                ['language', 'en_US'],
-                ['dateFormat', 'DD.MM.YYYY'],
-                ['timeFormat', 'HH:mm'],
-                ['timeZone', 'UTC'],
-                ['weekStart', '0'],
-                ['defaultCurrency', 'USD'],
-                ['baseCurrency', 'USD'],
-                ['thousandSeparator', ','],
-                ['decimalMark', '.'],
-                ['theme', 'Espo'],
-            ];
-
-            foreach ($settings as [$name, $value]) {
-                $stmt = $pdo->prepare('INSERT INTO "settings" ("id", "name", "value", "deleted") VALUES (?, ?, ?, 0)');
-                $stmt->execute([bin2hex(random_bytes(12)), $name, $value]);
-            }
-            echo "Default settings inserted.\n";
+    $settingsCount = $em->getRDBRepository('Setting')->count();
+    if ($settingsCount == 0) {
+        $settings = [
+            'language' => 'en_US',
+            'dateFormat' => 'DD.MM.YYYY',
+            'timeFormat' => 'HH:mm',
+            'timeZone' => 'UTC',
+            'weekStart' => '0',
+            'defaultCurrency' => 'USD',
+            'baseCurrency' => 'USD',
+            'thousandSeparator' => ',',
+            'decimalMark' => '.',
+            'theme' => 'Espo',
+        ];
+        foreach ($settings as $name => $value) {
+            $em->getRDBRepository('Setting')->create([
+                'name' => $name,
+                'value' => $value,
+            ]);
         }
+        echo "Default settings inserted.\n";
     }
 } catch (Throwable $e) {
     echo "Note: Could not insert settings: " . $e->getMessage() . "\n";
 }
 
-// Insert default preferences if preferences table exists
+// Insert default preferences via ORM
 try {
-    $stmt = $pdo->query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'preferences')");
-    $prefsExists = $stmt->fetchColumn();
-
-    if ($prefsExists) {
-        $stmt = $pdo->query('SELECT COUNT(*) FROM "preferences"');
-        $prefsCount = $stmt->fetchColumn();
-
-        if ($prefsCount == 0 && isset($adminId)) {
-            $prefsData = json_encode(['language' => 'en_US']);
-            $stmt = $pdo->prepare('INSERT INTO "preferences" ("id", "data") VALUES (?, ?)');
-            $stmt->execute([$adminId, $prefsData]);
+    if (isset($id)) {
+        $existingPrefs = $em->getRDBRepository('Preferences')->find($id);
+        if (!$existingPrefs) {
+            $em->getRDBRepository('Preferences')->create([
+                'id' => $id,
+                'data' => ['language' => 'en_US'],
+            ]);
             echo "Default preferences inserted.\n";
         }
     }

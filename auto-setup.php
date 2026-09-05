@@ -179,7 +179,7 @@ if ($tableCount >= 10) {
 
         if ($userTableExists) {
             // Check if admin user already exists
-            $stmt = $pdo->prepare('SELECT "id" FROM "user" WHERE "userName" = ?');
+            $stmt = $pdo->prepare('SELECT "id" FROM "user" WHERE "user_name" = ?');
             $stmt->execute(['admin']);
             $existing = $stmt->fetch();
 
@@ -201,10 +201,11 @@ if ($tableCount >= 10) {
                     // Team table might not exist yet
                 }
 
-                $stmt = $pdo->prepare('INSERT INTO "user" ("id", "userName", "password", "lastName", "type", "createdAt", "modifiedAt", "deleted", "isAdmin", "isActive") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                $stmt = $pdo->prepare('INSERT INTO "user" ("id", "user_name", "name", "password", "last_name", "type", "created_at", "modified_at", "deleted", "is_admin", "is_active") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
                 $stmt->execute([
                     $adminId,
                     'admin',
+                    'Admin',
                     $passwordHash,
                     'Admin',
                     'admin',
@@ -218,7 +219,7 @@ if ($tableCount >= 10) {
                 // Assign to admin team if team exists
                 if ($teamId) {
                     try {
-                        $stmt = $pdo->prepare('INSERT INTO "team_user" ("id", "userId", "teamId", "role") VALUES (?, ?, ?, ?)');
+                        $stmt = $pdo->prepare('INSERT INTO "team_user" ("id", "user_id", "team_id", "role", "deleted") VALUES (?, ?, ?, ?, false)');
                         $stmt->execute([
                             bin2hex(random_bytes(16)),
                             $adminId,
@@ -303,8 +304,8 @@ try {
 
         if ($prefsCount == 0 && isset($adminId)) {
             $prefsData = json_encode(['language' => 'en_US']);
-            $stmt = $pdo->prepare('INSERT INTO "preferences" ("id", "userId", "data", "deleted") VALUES (?, ?, ?, false)');
-            $stmt->execute([bin2hex(random_bytes(16)), $adminId, $prefsData]);
+            $stmt = $pdo->prepare('INSERT INTO "preferences" ("id", "data") VALUES (?, ?)');
+            $stmt->execute([$adminId, $prefsData]);
             echo "Default preferences inserted.\n";
         }
     }

@@ -210,11 +210,10 @@ if ($tableCount >= 10) {
                     // Team table might not exist yet
                 }
 
-                $stmt = $pdo->prepare('INSERT INTO "user" ("id", "user_name", "name", "password", "last_name", "type", "created_at", "modified_at", "deleted", "is_admin", "is_active") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                $stmt = $pdo->prepare('INSERT INTO "user" ("id", "user_name", "password", "last_name", "type", "created_at", "modified_at", "deleted", "is_admin", "is_active") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
                 $stmt->execute([
                     $adminId,
                     'admin',
-                    'Admin',
                     $passwordHash,
                     'Admin',
                     'admin',

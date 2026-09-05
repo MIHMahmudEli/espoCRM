@@ -33,7 +33,8 @@ WORKDIR /var/www/html
 
 COPY . .
 
-RUN chown -R nginx:nginx /var/www/html \
+RUN mkdir -p /var/www/html/data /var/www/html/custom \
+    && chown -R nginx:nginx /var/www/html \
     && chmod -R 755 /var/www/html \
     && chmod -R 777 /var/www/html/data \
     && chmod -R 777 /var/www/html/custom \
